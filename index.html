@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Хребет — пешие треки по горам с гидом</title>
+<meta name="description" content="Четырёхдневный трек через перевал к высокогорному озеру. Пролетите маршрут на 3D-карте: высоты, набор и ночёвки по дням.">
+<meta name="theme-color" content="#efe9dc">
+<meta property="og:title" content="Хребет — пешие треки по горам">
+<meta property="og:description" content="Пролетите четырёхдневный маршрут на 3D-карте.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&family=Piazzolla:ital,opsz,wght@0,8..30,400;0,8..30,600;1,8..30,400;1,8..30,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
+</head>
+<body class="is-loading">
+<a class="skip" href="#day1">Перейти к маршруту</a>
+<canvas id="scene" aria-hidden="true"></canvas>
+
+<header class="top">
+  <a class="logo" href="#hero">Хребет<span>экспедиции</span></a>
+  <nav class="top__nav" aria-label="Основная навигация">
+    <a href="#day1">Маршрут</a>
+    <a href="#join">Даты и цены</a>
+  </nav>
+  <a class="btn btn--small" href="#join">Записаться</a>
+</header>
+
+<!-- высотный профиль: заполняется по мере прохождения -->
+<aside class="profile" aria-hidden="true">
+  <div class="profile__read">
+    <span class="mono">Высота</span><b id="alt">0</b><span class="mono">м</span>
+    <span class="mono profile__km">Пройдено <b id="km">0,0</b> из <b id="kmAll">0</b> км</span>
+  </div>
+  <svg id="profile" viewBox="0 0 1000 100" preserveAspectRatio="none">
+    <path id="profBg" class="prof-bg"/>
+    <clipPath id="clip"><rect id="clipRect" x="0" y="0" width="0" height="100"/></clipPath>
+    <path id="profFg" class="prof-fg" clip-path="url(#clip)"/>
+    <g id="profTicks"></g>
+    <line id="profNow" class="prof-now" x1="0" x2="0" y1="0" y2="100"/>
+  </svg>
+</aside>
+
+<main>
+  <section class="sec sec--hero" id="hero">
+    <div class="copy">
+      <p class="mono">Пеший трек · 4 дня · с гидом · группа до 8 человек</p>
+      <h1>Через перевал <em>к&nbsp;озеру,</em> которого нет на&nbsp;открытках</h1>
+      <p class="lead">Маршрут целиком — на&nbsp;карте под этим текстом. Листайте вниз, и&nbsp;мы пройдём его вместе: каждый подъём, каждую ночёвку.</p>
+      <div class="actions">
+        <a class="btn" href="#day1">Пройти маршрут ↓</a>
+        <a class="link" href="#join">Даты и&nbsp;цены</a>
+      </div>
+    </div>
+  </section>
+
+  <div id="days"></div>
+
+  <section class="sec sec--join" id="join">
+    <div class="card">
+      <p class="mono">Сезон 2027</p>
+      <h2>Выберите <em>даты</em></h2>
+      <ul class="dates" id="dates" role="radiogroup" aria-label="Даты похода"></ul>
+      <form class="form" id="joinForm" novalidate>
+        <div class="field"><label for="fName">Имя</label><input id="fName" name="name" type="text" autocomplete="given-name" required></div>
+        <div class="field"><label for="fPhone">Телефон</label><input id="fPhone" name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="+7 ___ ___-__-__" required></div>
+        <button class="btn btn--wide" type="submit">Записаться в&nbsp;группу</button>
+        <p class="status mono" id="status" role="status" aria-live="polite"></p>
+      </form>
+      <p class="fine">В&nbsp;цену входят гид, палатки, питание на&nbsp;маршруте и&nbsp;трансфер. Рельеф на&nbsp;карте условный.</p>
+    </div>
+  </section>
+</main>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>
