@@ -23,7 +23,7 @@ function height(x, z) {
   for (let o = 0; o < 5; o++) { const n = 1 - Math.abs(noise(x * f + 13.7, z * f - 4.2) * 2 - 1); sum += n * n * amp; norm += amp; amp *= 0.5; f *= 2.07; }
   const v = sum / norm;
   const wild = v * v * 46 + noise(x * 0.006 + 3, z * 0.006) * 9 + 1.5;
-  // вдоль тропы рельеф «спроектирован»: долина → морены → перевал → спуск к озеру
+  // вдоль тропы рельеф «спроектирован» под реальные высоты: альплагерь → водопад → хижина Рацека → ледник
   let best = 1e9, bt = 0;
   for (let i = 0; i < WAY.length - 1; i++) {
     const ax = WAY[i][0], az = WAY[i][1], bx = WAY[i + 1][0] - ax, bz = WAY[i + 1][1] - az;
@@ -32,16 +32,27 @@ function height(x, z) {
   }
   let trail = TRAIL[TRAIL.length - 1][1];
   for (let i = 0; i < TRAIL.length - 1; i++) if (bt <= TRAIL[i + 1][0]) { trail = lerp(TRAIL[i][1], TRAIL[i + 1][1], sstep(TRAIL[i][0], TRAIL[i + 1][0], bt)); break; }
-  const w = Math.exp(-best / 150);
-  let h = lerp(wild, trail + (v - 0.4) * 5, w);
-  const lx = x - 92, lz = z + 100; // котловина озера за финишем
-  h -= 14 * Math.exp(-(lx * lx + lz * lz) / 420);
-  return h;
+  const w = Math.exp(-best / 420); // ширина долины вдоль тропы
+  return lerp(wild + 4, trail + (v - 0.4) * 1.2, w); // по бокам — стены ущелья
 }
-const LAKE = 3.2, M_PER_UNIT = 62, BASE_ALT = 1850, KM_PER_UNIT = 0.105;
+const LAKE = 2.0, M_PER_UNIT = 62, BASE_ALT = 1759;
+
+/* ---------- маршрут: альплагерь Ала-Арча → водопад Ак-Сай → хижина Рацека → край ледника Ак-Сай ----------
+   Высоты и расстояния примерные, по открытым путеводителям; рельеф на карте условный. */
+const TOTAL_KM = 7.8;
+const POINTS = [[0, 2100], [2.3, 2450], [4.5, 2860], [7.0, 3380], [7.8, 3450]]; // [км от старта, высота, м]
+const STAGES = [
+  { from: 0, to: 4.5, tag: 'Суббота · утро', kind: 'Подъём', title: 'К водопаду <em>Ак‑Сай</em>', end: 'Водопад Ак-Сай · ≈2 860 м',
+    text: 'Стартуем от альплагеря Ала-Арча — из Бишкека туда около часа на машине. Тропа идёт ущельем вдоль реки, сквозь заросли арчи, к водопаду Ак-Сай. Здесь привал и обед.' },
+  { from: 4.5, to: 7.0, tag: 'Суббота · день', kind: 'Ночёвка', title: 'Хижина <em>Рацека</em>', end: 'Хижина Рацека, ночёвка в палатках · ≈3 380 м',
+    text: 'Самый крутой участок: серпантин по морене над водопадом. К вечеру выходим к хижине Рацека — ставим палатки, ужин на горелке, над лагерем пик Корона.' },
+  { from: 7.0, to: 7.8, tag: 'Воскресенье', kind: 'Ледник', title: 'Рассвет у <em>ледника</em>', end: 'Край ледника Ак-Сай · ≈3 450 м',
+    text: 'Утром поднимаемся к краю ледника Ак-Сай, пока тропа твёрдая и лёд в тени. После завтрака спускаемся тем же путём — к вечеру вы снова в Бишкеке.' },
+];
+const altKm = (km) => { for (let i = 0; i < POINTS.length - 1; i++) if (km <= POINTS[i + 1][0]) return lerp(POINTS[i][1], POINTS[i + 1][1], sstep(POINTS[i][0], POINTS[i + 1][0], km)); return POINTS[POINTS.length - 1][1]; };
 
 /* ---------- маршрут ---------- */
-const TRAIL = [[0, 5.5], [0.25, 10], [0.5, 16], [0.68, 27], [0.86, 12], [1, 4.4]];
+const TRAIL = POINTS.map(([km, alt]) => [km / TOTAL_KM, (alt - BASE_ALT) / M_PER_UNIT]);
 const WAY = [[-80, 72], [-56, 52], [-32, 34], [-10, 8], [8, -14], [20, -38], [42, -54], [60, -70], [78, -86]];
 const N = 480;
 const curve2 = new THREE.CatmullRomCurve3(WAY.map(([x, z]) => new THREE.Vector3(x, 0, z)), false, 'centripetal');
@@ -51,52 +62,39 @@ const ROUTE = curve2.getSpacedPoints(N - 1);
   ROUTE.forEach((p, i) => { let s = 0, c = 0; for (let k = -6; k <= 6; k++) { const j = clamp(i + k, 0, N - 1); s += raw[j]; c++; } p.y = s / c + 0.3; });
 }
 const LENGTH = curve2.getLength();
-const altAt = (i) => BASE_ALT + ROUTE[i].y * M_PER_UNIT;
+const altAt = (i) => altKm((i / (N - 1)) * TOTAL_KM); // табло и профиль — по реальным точкам маршрута
 const ALT = ROUTE.map((_, i) => altAt(i));
 const ALT_MIN = Math.min(...ALT), ALT_MAX = Math.max(...ALT), I_MAX = ALT.indexOf(ALT_MAX);
 
-// дни: статистика считается по тому же профилю, что нарисован внизу
-const DAYS = [0, 1, 2, 3].map((d) => {
-  const a = Math.round((d / 4) * (N - 1)), b = Math.round(((d + 1) / 4) * (N - 1));
-  let up = 0, max = 0;
-  for (let i = a + 1; i <= b; i++) { up += Math.max(0, ALT[i] - ALT[i - 1]); max = Math.max(max, ALT[i]); }
-  const pass = I_MAX > a && I_MAX <= b, net = ALT[b] - ALT[a];
-  const type = pass ? 'pass' : net > 120 ? 'up' : net < -120 ? 'down' : 'flat';
-  return { d, a, b, km: (LENGTH / 4) * KM_PER_UNIT, up, max, end: ALT[b], type };
-});
-const TEXT = {
-  pass: ['Перевал', 'Самый высокий день маршрута. Выходим затемно, чтобы быть на седловине до полудня, пока погода устойчивая. Наверху — чай из термоса и вид на обе долины.'],
-  up: ['Подъём', 'Идём вверх вдоль реки, без спешки: организм привыкает к высоте. Гид задаёт темп по самому медленному в группе.'],
-  down: ['Спуск', 'Колени скажут спасибо треккинговым палкам. К вечеру лес возвращается, а вместе с ним — тепло и дрова для костра.'],
-  flat: ['Траверс', 'День почти без набора: тропа идёт вдоль склона. Время смотреть по сторонам и фотографировать.'],
-};
-const CAMPS = ['Лагерь у реки', 'Лагерь на морене', 'Лагерь под перевалом', 'Финиш у озера, трансфер в город'];
+// этапы: цифры берутся из тех же точек, что и высотный профиль
+const DAYS = STAGES.map((st, d) => ({ ...st, d, a: Math.round((st.from / TOTAL_KM) * (N - 1)), b: Math.round((st.to / TOTAL_KM) * (N - 1)), km: st.to - st.from, up: altKm(st.to) - altKm(st.from), max: altKm(st.to) }));
+const round10 = (n) => fmt(Math.round(n / 10) * 10);
 $('days').innerHTML = DAYS.map((d) => `
   <section class="sec sec--day" id="day${d.d + 1}">
     <article class="card">
-      <p class="mono card__n"><span>День ${d.d + 1} из 4</span><b>${TEXT[d.type][0]}</b></p>
-      <h2>${['От реки <em>вверх</em>', 'Камни и <em>ветер</em>', 'Над <em>облаками</em>', 'К <em>воде</em>'][d.d]}</h2>
+      <p class="mono card__n"><span>Этап ${d.d + 1} из ${DAYS.length} · ${d.tag}</span><b>${d.kind}</b></p>
+      <h2>${d.title}</h2>
       <ul class="stats">
-        <li><b>${d.km.toFixed(1).replace('.', ',')}</b><span>км пути</span></li>
-        <li><b>${fmt(d.up)}</b><span>м набора</span></li>
-        <li><b>${fmt(d.max)}</b><span>м макс. высота</span></li>
+        <li><b>≈${d.km.toFixed(1).replace('.', ',')}</b><span>км пути</span></li>
+        <li><b>≈${round10(d.up)}</b><span>м набора</span></li>
+        <li><b>≈${round10(d.max)}</b><span>м высота</span></li>
       </ul>
-      <p>${TEXT[d.type][1]}</p>
-      <p class="card__camp"><i></i>${CAMPS[d.d]} · ${fmt(d.end)} м</p>
+      <p>${d.text}</p>
+      <p class="card__camp"><i></i>${d.end}</p>
     </article>
   </section>`).join('');
-$('kmAll').textContent = (LENGTH * KM_PER_UNIT).toFixed(0);
+$('kmAll').textContent = TOTAL_KM.toFixed(1).replace('.', ',');
 
 // высотный профиль
 {
   const y = (a) => 96 - ((a - ALT_MIN) / (ALT_MAX - ALT_MIN)) * 84;
   const d = `M0,100 L${ALT.map((a, i) => `${((i / (N - 1)) * 1000).toFixed(1)},${y(a).toFixed(1)}`).join(' L')} L1000,100 Z`;
   $('profBg').setAttribute('d', d); $('profFg').setAttribute('d', d);
-  $('profTicks').innerHTML = [1, 2, 3].map((k) => `<line x1="${k * 250}" x2="${k * 250}" y1="0" y2="100"/>`).join('');
+  $('profTicks').innerHTML = STAGES.slice(0, -1).map((st) => `<line x1="${(st.to / TOTAL_KM) * 1000}" x2="${(st.to / TOTAL_KM) * 1000}" y1="0" y2="100"/>`).join('');
 }
 
 // даты и форма (заглушки)
-const DATES = [['12—15 июня', '34 000 ₽', 'мест нет'], ['3—6 июля', '36 000 ₽', '3 места'], ['24—27 июля', '36 000 ₽', '6 мест'], ['14—17 августа', '34 000 ₽', '8 мест']];
+const DATES = [['12—13 июня, сб—вс', '6 900 сом', 'мест нет'], ['3—4 июля, сб—вс', '6 900 сом', '3 места'], ['24—25 июля, сб—вс', '6 900 сом', '6 мест'], ['14—15 августа, сб—вс', '6 900 сом', '8 мест']];
 let dateSel = 1;
 const drawDates = () => { $('dates').innerHTML = DATES.map((d, i) => `<li><button class="date" type="button" role="radio" data-i="${i}" aria-checked="${i === dateSel}" ${i === 0 ? 'aria-disabled="true"' : ''}><b>${d[0]}</b><span>${d[2]}</span><span>${d[1]}</span></button></li>`).join(''); };
 drawDates();
@@ -128,7 +126,7 @@ function readScroll() {
   prog.sOut = sstep(-vh * 0.1, vh * 0.6, y - r.bottom);
   const i = Math.round(prog.u * (N - 1));
   $('alt').textContent = fmt(ALT[i]);
-  $('km').textContent = (prog.u * LENGTH * KM_PER_UNIT).toFixed(1).replace('.', ',');
+  $('km').textContent = (prog.u * TOTAL_KM).toFixed(1).replace('.', ',');
   $('clipRect').setAttribute('width', (prog.u * 1000).toFixed(1));
   $('profNow').setAttribute('x1', prog.u * 1000); $('profNow').setAttribute('x2', prog.u * 1000);
 }
@@ -210,8 +208,8 @@ function init() {
   walked.position.y = 0.12; scene.add(walked);
   const orange = new THREE.MeshBasicMaterial({ color: '#ff5a1f' }), ink = new THREE.MeshBasicMaterial({ color: '#1f2a24' });
   DAYS.forEach((d) => { // палатки на ночёвках
-    const p = ROUTE[d.b], tent = new THREE.Mesh(new THREE.ConeGeometry(1.25, 1.5, 4), d.d === 3 ? ink : orange);
-    tent.position.set(p.x + 1.6, p.y + 0.6, p.z + 0.6); tent.rotation.y = 0.6; scene.add(tent);
+    const p = ROUTE[Math.min(d.b, N - 1)];
+    if (d.d === 1) { const tent = new THREE.Mesh(new THREE.ConeGeometry(1.25, 1.5, 4), orange); tent.position.set(p.x + 1.6, p.y + 0.6, p.z + 0.6); tent.rotation.y = 0.6; scene.add(tent); }
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 4.4), ink); pole.position.set(p.x, p.y + 2.2, p.z); scene.add(pole);
     const flag = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.3, 3), orange); flag.rotation.z = -Math.PI / 2; flag.position.set(p.x + 0.7, p.y + 3.9, p.z); scene.add(flag);
   });
@@ -237,9 +235,15 @@ function init() {
     at(uS, here); at(uS + 0.05, ahead);
     dir.subVectors(ahead, here).setY(0); if (dir.lengthSq() < 1e-6) dir.set(1, 0, -1); dir.normalize();
     // камера идёт за спиной путника, чуть сбоку
-    const back = camera.aspect < 0.8 ? 30 : 23;
-    wantPos.copy(here).addScaledVector(dir, -back).add(new THREE.Vector3(-dir.z * 7, 12.5, dir.x * 7));
+    const back = camera.aspect < 0.8 ? 30 : 24;
+    wantPos.copy(here).addScaledVector(dir, -back).add(new THREE.Vector3(-dir.z * 4, 17, dir.x * 4));
     wantPos.y = Math.max(wantPos.y, height(wantPos.x, wantPos.z) + 4);
+    // линия взгляда: если между камерой и путником гора — поднимаем камеру над ней
+    for (let k = 0; k < 10; k++) {
+      const t = k / 10, sx = lerp(wantPos.x, here.x, t), sz = lerp(wantPos.z, here.z, t);
+      const lineY = lerp(wantPos.y, here.y + 1, t), ground = height(sx, sz) + 2.5;
+      if (ground > lineY) wantPos.y += (ground - lineY) / (1 - t);
+    }
     wantLook.copy(here).addScaledVector(dir, 7); wantLook.y += 1.5;
     const orbit = reduceMotion ? 0 : Math.sin(time * 0.12) * 14;
     wantPos.lerpVectors(O1.clone().setX(O1.x + orbit), wantPos, prog.sIn).lerp(O2, prog.sOut);
